@@ -8,7 +8,8 @@ import (
 	"strings"
 )
 
-func ParseDataUri(u string) (*bytes.Reader, string, error) {
+// ParseDataUri will parse a given data: uri and return its data and mime type.
+func ParseDataUri(u string) ([]byte, string, error) {
 	if !strings.HasPrefix(u, "data:") {
 		return nil, "", errors.New("not a data uri")
 	}
@@ -50,5 +51,5 @@ func ParseDataUri(u string) (*bytes.Reader, string, error) {
 		dat = []byte(tmp)
 	}
 
-	return bytes.NewReader(dat), mime, nil
+	return dat, mime, nil
 }
