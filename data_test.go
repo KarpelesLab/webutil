@@ -2,7 +2,6 @@ package webutil_test
 
 import (
 	"bytes"
-	"io/ioutil"
 	"testing"
 
 	"github.com/KarpelesLab/webutil"
@@ -24,16 +23,14 @@ func TestParseData(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		r, mime, err := webutil.ParseDataUri(c.A)
+		b, mime, err := webutil.ParseDataUri(c.A)
 
 		if err != nil {
 			t.Errorf("test failed, error %s", err)
 		}
 
-		b, _ := ioutil.ReadAll(r)
-
 		if bytes.Compare(c.R, b) != 0 {
-			t.Errorf("test failed, %s result %v, expected %v", c.A, r, c.R)
+			t.Errorf("test failed, %s result %s, expected %v", c.A, b, c.R)
 		}
 
 		if c.Mime != mime {
