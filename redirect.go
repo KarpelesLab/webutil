@@ -16,7 +16,10 @@ type redirectError struct {
 
 func SendRedirect(w http.ResponseWriter, url string, code int) {
 	w.Header().Set("Location", url)
+	w.Header().Set("Content-Type", "text/html")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(code) // http.StatusFound
+
 	fmt.Fprintf(w, "You are being redirected to <a href=\"%s\">%s</a>. If you see this message, please manually follow the link.", html.EscapeString(url), html.EscapeString(url))
 	// try various stuff to cause the redirect to happen in case header failed to happen
 	if js, err := json.Marshal(url); err == nil {
