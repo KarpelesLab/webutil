@@ -11,21 +11,17 @@ type serverError struct {
 	e error
 }
 
-type httpError int
-
-func HttpError(code int) error {
-	return httpError(code)
-}
+type HttpError int
 
 func HttpErrorHandler(code int) http.Handler {
-	return httpError(code)
+	return HttpError(code)
 }
 
-func (e httpError) Error() string {
+func (e HttpError) Error() string {
 	return fmt.Sprintf("HTTP error %d", e)
 }
 
-func (e httpError) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (e HttpError) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	if e == http.StatusUnauthorized {
