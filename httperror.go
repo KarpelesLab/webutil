@@ -44,6 +44,11 @@ func (e *serverError) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// HTTPStatus returns the value set in http error
+func (e HttpError) HTTPStatus() int {
+	return int(e)
+}
+
 func ErrorToHttpHandler(e error) http.Handler {
 	if h, ok := e.(http.Handler); ok {
 		return h

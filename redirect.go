@@ -57,6 +57,10 @@ func (e *redirectError) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	SendRedirect(w, e.u.String(), e.code)
 }
 
+func (e *redirectError) HTTPStatus() int {
+	return e.code
+}
+
 func IsRedirect(e error) http.Handler {
 	var r *redirectError
 	if errors.As(e, &r) {
