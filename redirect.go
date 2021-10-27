@@ -9,9 +9,9 @@ import (
 	"net/url"
 )
 
-type redirectError struct {
-	u    *url.URL
-	code int
+type Redirect struct {
+	URL  *url.URL
+	Code int
 }
 
 func SendRedirect(w http.ResponseWriter, url string, code int) {
@@ -33,36 +33,36 @@ func SendRedirect(w http.ResponseWriter, url string, code int) {
 // any 3xx http status code
 func RedirectErrorCode(u *url.URL, code int) error {
 	// generate a redirect error
-	n := &redirectError{u: new(url.URL), code: code}
+	n := &Redirect{URL: new(url.URL), Code: code}
 	// copy url
-	*n.u = *u
+	*n.URL = *u
 
 	return n
 }
 
 func RedirectError(u *url.URL) error {
 	// generate a redirect error
-	n := &redirectError{u: new(url.URL), code: http.StatusFound}
+	n := &Redirect{URL: new(url.URL), Code: http.StatusFound}
 	// copy url
-	*n.u = *u
+	*n.URL = *u
 
 	return n
 }
 
-func (e *redirectError) Error() string {
-	return fmt.Sprintf("Redirect required to %s", e.u)
+func (e *Redirect) Error() string {
+	return fmt.Sprintf("Redirect required to %s", e.URL)
 }
 
-func (e *redirectError) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	SendRedirect(w, e.u.String(), e.code)
+func (e *Redirect) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	SendRedirect(w, e.URL.String(), e.Code)
 }
 
-func (e *redirectError) HTTPStatus() int {
-	return e.code
+func (e *Redirect) HTTPStatus() int {
+	return e.Code
 }
 
 func IsRedirect(e error) http.Handler {
-	var r *redirectError
+	var r *Redirect
 	if errors.As(e, &r) {
 		return r
 	}
