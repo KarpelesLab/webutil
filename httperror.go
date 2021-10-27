@@ -3,8 +3,8 @@ package webutil
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"net/http"
-	"os"
 )
 
 type serverError struct {
@@ -34,14 +34,18 @@ func (e HttpError) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 func (e *serverError) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-
-	switch e.e {
-	case os.ErrNotExist:
-		http.NotFound(w, req)
-	default:
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, "Server error: %s", e.e)
+	code := HTTPStatus(e.e)
+	if code == 0 {
+		code = http.StatusInternalServerError
 	}
+
+	if errors.Is(e.e, fs.ErrNotExist) {
+		http.NotFound(w, req)
+		return
+	}
+
+	w.WriteHeader(code)
+	fmt.Fprintf(w, "Server error: %s", e.e)
 }
 
 // HTTPStatus returns the value set in http error
