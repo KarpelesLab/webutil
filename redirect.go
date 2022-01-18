@@ -14,19 +14,20 @@ type Redirect struct {
 	Code int
 }
 
-func SendRedirect(w http.ResponseWriter, url string, code int) {
-	w.Header().Set("Location", url)
+// SendRedirect is deprecated. http.Redirect() should be used instead
+func SendRedirect(w http.ResponseWriter, target string, code int) {
+	w.Header().Set("Location", target)
 	w.Header().Set("Content-Type", "text/html")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(code) // http.StatusFound
 
-	fmt.Fprintf(w, "You are being redirected to <a href=\"%s\">%s</a>. If you see this message, please manually follow the link.", html.EscapeString(url), html.EscapeString(url))
+	fmt.Fprintf(w, "You are being redirected to <a href=\"%s\">%s</a>. If you see this message, please manually follow the link.", html.EscapeString(target), html.EscapeString(target))
 	// try various stuff to cause the redirect to happen in case header failed to happen
-	if js, err := json.Marshal(url); err == nil {
+	if js, err := json.Marshal(target); err == nil {
 		fmt.Fprintf(w, "<script language=\"javascript\">window.location = %s;</script>", js)
 	}
-	fmt.Fprintf(w, "<meta http-equiv=\"Refresh\" content=\"0; url=%s\"/>", html.EscapeString(url))
-	fmt.Fprintf(w, "<meta http-equiv=\"Location\" content=\"%s\"/>", html.EscapeString(url))
+	fmt.Fprintf(w, "<meta http-equiv=\"Refresh\" content=\"0; url=%s\"/>", html.EscapeString(target))
+	fmt.Fprintf(w, "<meta http-equiv=\"Location\" content=\"%s\"/>", html.EscapeString(target))
 }
 
 // code can be one of http.StatusMovedPermanently or http.StatusFound or
@@ -54,7 +55,7 @@ func (e *Redirect) Error() string {
 }
 
 func (e *Redirect) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	SendRedirect(w, e.URL.String(), e.Code)
+	http.Redirect(w, req, e.URL.String(), e.Code)
 }
 
 func (e *Redirect) HTTPStatus() int {
