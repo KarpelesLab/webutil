@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// ParsePhpQuery parses PHP compatible query string, return as map[string]interface{}
+// ParsePhpQuery parses PHP compatible query string, return as map[string]any
 //
 // multiple cases may happen:
 // a=b (simple)
@@ -15,8 +15,8 @@ import (
 // a[]=c (array)
 // a[b][]=c (multi levels)
 // a[][][]=c (wtf)
-func ParsePhpQuery(q string) map[string]interface{} {
-	res := make(map[string]interface{})
+func ParsePhpQuery(q string) map[string]any {
+	res := make(map[string]any)
 
 	for {
 		p := strings.IndexByte(q, '&')
@@ -33,8 +33,8 @@ func ParsePhpQuery(q string) map[string]interface{} {
 	return res
 }
 
-func ConvertPhpQuery(u url.Values) map[string]interface{} {
-	res := make(map[string]interface{})
+func ConvertPhpQuery(u url.Values) map[string]any {
+	res := make(map[string]any)
 
 	for k, sub := range u {
 		for _, v := range sub {
@@ -46,26 +46,26 @@ func ConvertPhpQuery(u url.Values) map[string]interface{} {
 	return res
 }
 
-func parsePhpFix(i interface{}) interface{} {
+func parsePhpFix(i any) any {
 	switch j := i.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		for k, v := range j {
 			j[k] = parsePhpFix(v)
 		}
 		return j
-	case []interface{}:
+	case []any:
 		for k, v := range j {
 			j[k] = parsePhpFix(v)
 		}
 		return j
-	case *[]interface{}:
+	case *[]any:
 		return parsePhpFix(*j)
 	default:
 		return i
 	}
 }
 
-func parsePhpQ(res map[string]interface{}, sub string) {
+func parsePhpQ(res map[string]any, sub string) {
 	if sub == "" {
 		return
 	}
@@ -83,7 +83,7 @@ func parsePhpQ(res map[string]interface{}, sub string) {
 	parsePhpQV(res, val, sub)
 }
 
-func parsePhpQV(res map[string]interface{}, val, sub string) {
+func parsePhpQV(res map[string]any, val, sub string) {
 	p := strings.IndexByte(sub, '[')
 	if p == -1 {
 		// simple
@@ -118,17 +118,17 @@ func parsePhpQV(res map[string]interface{}, val, sub string) {
 		sub = sub[p+1:]
 	}
 
-	var resA *[]interface{}
+	var resA *[]any
 	prev := depth[0]
 	depth = depth[1:]
 
 	for _, s := range depth {
 		if s == "" {
-			n := new([]interface{})
+			n := new([]any)
 			if prev == "" {
 				*resA = append(*resA, n)
 			} else {
-				if subn, ok := res[prev].(*[]interface{}); ok {
+				if subn, ok := res[prev].(*[]any); ok {
 					n = subn
 				} else {
 					res[prev] = n
@@ -136,12 +136,12 @@ func parsePhpQV(res map[string]interface{}, val, sub string) {
 			}
 			resA = n
 		} else {
-			n := make(map[string]interface{})
+			n := make(map[string]any)
 			if prev == "" {
 				*resA = append(*resA, n)
 				resA = nil
 			} else {
-				if subn, ok := res[prev].(map[string]interface{}); ok {
+				if subn, ok := res[prev].(map[string]any); ok {
 					n = subn
 				} else {
 					res[prev] = n
@@ -159,7 +159,7 @@ func parsePhpQV(res map[string]interface{}, val, sub string) {
 	}
 }
 
-func EncodePhpQuery(q map[string]interface{}) string {
+func EncodePhpQuery(q map[string]any) string {
 	// encode a php query
 	var res []byte
 	for k, v := range q {
@@ -168,13 +168,13 @@ func EncodePhpQuery(q map[string]interface{}) string {
 	return string(res)
 }
 
-func encodePhpQueryAppend(res []byte, v interface{}, k string) []byte {
+func encodePhpQueryAppend(res []byte, v any, k string) []byte {
 	switch rv := v.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		for subk, subv := range rv {
 			res = encodePhpQueryAppend(res, subv, k+"["+subk+"]")
 		}
-	case []interface{}:
+	case []any:
 		for _, subv := range rv {
 			res = encodePhpQueryAppend(res, subv, k+"[]")
 		}

@@ -19,14 +19,14 @@ func NewContextLogger(ctx context.Context, l *log.Logger) context.Context {
 	return &contextLogger{ctx, l}
 }
 
-func (ctx *contextLogger) Value(key interface{}) interface{} {
+func (ctx *contextLogger) Value(key any) any {
 	if key == contextLoggerLogger {
 		return ctx.l
 	}
 	return ctx.Context.Value(key)
 }
 
-func CtxPrintf(ctx context.Context, format string, v ...interface{}) {
+func CtxPrintf(ctx context.Context, format string, v ...any) {
 	if l, ok := ctx.Value(contextLoggerLogger).(*log.Logger); ok {
 		l.Output(2, fmt.Sprintf(format, v...))
 	} else {
