@@ -13,14 +13,19 @@ type serverError struct {
 
 type HttpError int
 
+// HttpErrorHandler returns a http.Handler for a given error code
+//
+// Deprecated: HttpError can be directly used as a handler
 func HttpErrorHandler(code int) http.Handler {
 	return HttpError(code)
 }
 
+// Error returns information about the error, including the corresponding text
 func (e HttpError) Error() string {
-	return fmt.Sprintf("HTTP error %d", e)
+	return fmt.Sprintf("HTTP error %d: %s", e, http.StatusText(int(e)))
 }
 
+// ServeHTTP serves the error
 func (e HttpError) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
