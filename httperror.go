@@ -25,6 +25,21 @@ func (e HttpError) Error() string {
 	return fmt.Sprintf("HTTP error %d: %s", e, http.StatusText(int(e)))
 }
 
+// Unwrap will return a common error that (somewhat) matches the received error,
+// making it easier to check if a given response matches a specific kind of error
+func (e HttpError) Unwrap() error {
+	switch e {
+	case http.StatusBadRequest:
+		return fs.ErrInvalid
+	case http.StatusUnauthorized, http.StatusForbidden:
+		return fs.ErrPermission
+	case http.StatusNotFound:
+		return fs.ErrNotExist
+	default:
+		return nil
+	}
+}
+
 // ServeHTTP serves the error
 func (e HttpError) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -44,13 +59,8 @@ func (e *serverError) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		code = http.StatusInternalServerError
 	}
 
-	if errors.Is(e.e, fs.ErrNotExist) {
-		http.NotFound(w, req)
-		return
-	}
-
 	w.WriteHeader(code)
-	fmt.Fprintf(w, "Server error: %s", e.e)
+	w.Write([]byte(e.e.Error()))
 }
 
 // HTTPStatus returns the value set in http error

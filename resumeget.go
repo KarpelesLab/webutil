@@ -47,7 +47,7 @@ func Get(url string) (io.ReadCloser, error) {
 		// all good
 	default:
 		discardAndCloseBody(resp)
-		return nil, fmt.Errorf("HTTP response %s", resp.Status)
+		return nil, HttpError(resp.StatusCode)
 	}
 
 	obj := &resumeGET{
@@ -88,7 +88,7 @@ func (r *resumeGET) Read(b []byte) (int, error) {
 	}
 	if resp.StatusCode != http.StatusPartialContent {
 		discardAndCloseBody(resp)
-		return 0, fmt.Errorf("expected partial content, got %w", resp.Status)
+		return 0, fmt.Errorf("expected partial content, got %w", HttpError(resp.StatusCode))
 	}
 
 	// store resp
