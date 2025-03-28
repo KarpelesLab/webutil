@@ -44,7 +44,7 @@ func TestParseIPPort(t *testing.T) {
 			}
 
 			if result.String() != tc.expect.String() {
-				t.Errorf("ParseIPPort(%q): got %s, want %s", 
+				t.Errorf("ParseIPPort(%q): got %s, want %s",
 					tc.input, result.String(), tc.expect.String())
 			}
 		})
@@ -72,7 +72,7 @@ func TestParseIPPort(t *testing.T) {
 	for _, tc := range invalidCases {
 		t.Run(tc.name, func(t *testing.T) {
 			result := webutil.ParseIPPort(tc.input)
-			
+
 			if result != nil && tc.name != "Empty string" {
 				t.Errorf("Expected nil for invalid input %q, got %v", tc.input, result)
 			}

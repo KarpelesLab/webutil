@@ -239,12 +239,12 @@ func processPhpArrayPath(result map[string]any, path []string, value string) {
 // EncodePhpQuery converts a structured map back to a PHP-compatible query string.
 func EncodePhpQuery(query map[string]any) string {
 	var result []byte
-	
+
 	// Process each top-level key
 	for key, value := range query {
 		result = encodePhpQueryAppend(result, value, key)
 	}
-	
+
 	return string(result)
 }
 
@@ -257,13 +257,13 @@ func encodePhpQueryAppend(result []byte, value any, key string) []byte {
 		for subKey, subValue := range val {
 			result = encodePhpQueryAppend(result, subValue, key+"["+subKey+"]")
 		}
-	
+
 	case []any:
 		// Handle arrays with [] notation
 		for _, subValue := range val {
 			result = encodePhpQueryAppend(result, subValue, key+"[]")
 		}
-	
+
 	case string:
 		// Handle string values with proper encoding
 		if len(result) > 0 {
@@ -272,19 +272,19 @@ func encodePhpQueryAppend(result []byte, value any, key string) []byte {
 		result = append(result, url.QueryEscape(key)...)
 		result = append(result, '=')
 		result = append(result, url.QueryEscape(val)...)
-	
+
 	case []byte:
 		// Convert byte slices to strings
 		return encodePhpQueryAppend(result, string(val), key)
-	
+
 	case *bytes.Buffer:
 		// Convert buffers to strings
 		return encodePhpQueryAppend(result, string(val.Bytes()), key)
-	
+
 	default:
 		// Convert anything else to string representation
 		return encodePhpQueryAppend(result, fmt.Sprintf("%+v", val), key)
 	}
-	
+
 	return result
 }

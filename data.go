@@ -16,7 +16,7 @@ var ErrNotDataURI = errors.New("not a data URI")
 var ErrNoEncodedValue = errors.New("could not locate encoded value")
 
 // ParseDataURI parses a given data: URI and returns its binary data and MIME type.
-// 
+//
 // The format of a data URI is:
 //
 //	data:[<media type>][;base64],<data>
@@ -27,10 +27,10 @@ func ParseDataURI(uri string) ([]byte, string, error) {
 	if !strings.HasPrefix(uri, "data:") {
 		return nil, "", ErrNotDataURI
 	}
-	
+
 	// Remove the "data:" prefix
 	uri = uri[5:]
-	
+
 	// Skip extra leading slashes (some implementations include them)
 	uri = strings.TrimLeft(uri, "/")
 
@@ -41,7 +41,7 @@ func ParseDataURI(uri string) ([]byte, string, error) {
 	}
 
 	// Split the metadata part into options (MIME type and encoding info)
-	opts := strings.Split(uri[:p], ";") 
+	opts := strings.Split(uri[:p], ";")
 	data := []byte(uri[p+1:])
 
 	// Extract MIME type (first option)

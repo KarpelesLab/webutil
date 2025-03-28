@@ -7,7 +7,7 @@ import (
 )
 
 // HTTPStatus extracts an HTTP status code from an error.
-// 
+//
 // It can handle several types of errors:
 // 1. Standard fs package errors (ErrNotExist, ErrPermission)
 // 2. HTTPError type from this package

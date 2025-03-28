@@ -88,7 +88,7 @@ func (r *resumeGET) Read(b []byte) (int, error) {
 	// If we have an active response, try to read from it
 	if r.resp != nil {
 		n, err := r.resp.Body.Read(b)
-		
+
 		// If we read data, update position and return, even if there was an error
 		// This ensures we return the data we have before handling any error
 		if n > 0 {
@@ -119,7 +119,7 @@ func (r *resumeGET) Read(b []byte) (int, error) {
 func (r *resumeGET) resumeDownload(b []byte) (int, error) {
 	// Set Range header to resume from current position
 	r.req.Header.Set("Range", fmt.Sprintf("bytes=%d-", r.pos))
-	
+
 	// Perform the request with the Range header
 	resp, err := r.client.Do(r.req)
 	if err != nil {
@@ -134,7 +134,7 @@ func (r *resumeGET) resumeDownload(b []byte) (int, error) {
 
 	// Store the new response
 	r.resp = resp
-	
+
 	// Read data from the new response
 	n, err := r.resp.Body.Read(b)
 	r.pos += int64(n)

@@ -31,17 +31,17 @@ func SendRedirect(w http.ResponseWriter, target string, code int) {
 
 	// Provide fallback content with multiple redirect techniques
 	escapedTarget := html.EscapeString(target)
-	
+
 	// Link for manual navigation
 	_, _ = fmt.Fprintf(w, "You are being redirected to <a href=\"%s\">%s</a>. "+
-		"If you see this message, please manually follow the link.", 
+		"If you see this message, please manually follow the link.",
 		escapedTarget, escapedTarget)
-	
+
 	// JavaScript redirect
 	if js, err := json.Marshal(target); err == nil {
 		_, _ = fmt.Fprintf(w, "<script>window.location = %s;</script>", js)
 	}
-	
+
 	// Meta refresh redirect
 	_, _ = fmt.Fprintf(w, "<meta http-equiv=\"Refresh\" content=\"0; url=%s\"/>", escapedTarget)
 	_, _ = fmt.Fprintf(w, "<meta http-equiv=\"Location\" content=\"%s\"/>", escapedTarget)
@@ -60,7 +60,7 @@ func RedirectErrorCode(u *url.URL, code int) error {
 		URL:  &url.URL{},
 		Code: code,
 	}
-	
+
 	*redirect.URL = *u // Deep copy the URL
 	return redirect
 }

@@ -59,12 +59,12 @@ func (e HTTPError) Unwrap() error {
 func (e HTTPError) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	
+
 	// Add WWW-Authenticate header for 401 Unauthorized
 	if e == http.StatusUnauthorized {
 		w.Header().Set("WWW-Authenticate", "Basic realm=\"Website Access\"")
 	}
-	
+
 	w.WriteHeader(int(e))
 	_, _ = fmt.Fprintf(w, "HTTP Error code %d: %s", int(e), http.StatusText(int(e)))
 }
@@ -73,7 +73,7 @@ func (e HTTPError) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 func (e *serverError) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	
+
 	// Get HTTP status code from error or default to 500
 	code := HTTPStatus(e.e)
 	if code == 0 {
