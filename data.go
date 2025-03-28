@@ -4,52 +4,77 @@ import (
 	"bytes"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"net/url"
 	"strings"
 )
 
-// ParseDataUri will parse a given data: uri and return its data and mime type.
-func ParseDataUri(u string) ([]byte, string, error) {
-	if !strings.HasPrefix(u, "data:") {
-		return nil, "", errors.New("not a data uri")
-	}
-	u = u[5:]
-	for len(u) > 0 && u[0] == '/' {
-		u = u[1:]
-	}
+// ErrNotDataURI is returned when the input string is not a valid data URI
+var ErrNotDataURI = errors.New("not a data URI")
 
-	p := strings.IndexByte(u, ',')
+// ErrNoEncodedValue is returned when the data URI doesn't contain a value part
+var ErrNoEncodedValue = errors.New("could not locate encoded value")
 
+// ParseDataURI parses a given data: URI and returns its binary data and MIME type.
+// 
+// The format of a data URI is:
+//
+//	data:[<media type>][;base64],<data>
+//
+// Example: "data:text/plain;base64,SGVsbG8gV29ybGQ="
+func ParseDataURI(uri string) ([]byte, string, error) {
+	// Validate URI prefix
+	if !strings.HasPrefix(uri, "data:") {
+		return nil, "", ErrNotDataURI
+	}
+	
+	// Remove the "data:" prefix
+	uri = uri[5:]
+	
+	// Skip extra leading slashes (some implementations include them)
+	uri = strings.TrimLeft(uri, "/")
+
+	// Find the comma that separates metadata from the data
+	p := strings.IndexByte(uri, ',')
 	if p == -1 {
-		return nil, "", errors.New("could not locate base64 encoded value")
+		return nil, "", ErrNoEncodedValue
 	}
 
-	opts := strings.Split(u[:p], ";") // first opt will be mime type, last will be base64 if base64
-	dat := []byte(u[p+1:])            // could be base64 encoded, we'll see this later
+	// Split the metadata part into options (MIME type and encoding info)
+	opts := strings.Split(uri[:p], ";") 
+	data := []byte(uri[p+1:])
 
+	// Extract MIME type (first option)
 	mime := opts[0]
 	if mime == "" {
 		mime = "application/octet-stream"
 	}
 
+	// Check if data is base64 encoded (last option is "base64")
 	if opts[len(opts)-1] == "base64" {
-		// perform base64 decoding
-		dat = bytes.TrimRight(dat, "=")
-		res := make([]byte, base64.RawStdEncoding.DecodedLen(len(dat)))
-		n, err := base64.RawStdEncoding.Decode(res, dat)
-
+		// Perform base64 decoding
+		data = bytes.TrimRight(data, "=")
+		result := make([]byte, base64.RawStdEncoding.DecodedLen(len(data)))
+		n, err := base64.RawStdEncoding.Decode(result, data)
 		if err != nil {
-			return nil, "", err
+			return nil, "", fmt.Errorf("base64 decode failed: %w", err)
 		}
-
-		dat = res[:n]
+		data = result[:n]
 	} else {
-		tmp, err := url.QueryUnescape(string(dat))
+		// URL-decode the data if not base64 encoded
+		decoded, err := url.QueryUnescape(string(data))
 		if err != nil {
-			return nil, "", err
+			return nil, "", fmt.Errorf("URL decode failed: %w", err)
 		}
-		dat = []byte(tmp)
+		data = []byte(decoded)
 	}
 
-	return dat, mime, nil
+	return data, mime, nil
+}
+
+// ParseDataUri is an alias for ParseDataURI to maintain backward compatibility.
+//
+// Deprecated: Use ParseDataURI instead.
+func ParseDataUri(uri string) ([]byte, string, error) {
+	return ParseDataURI(uri)
 }
