@@ -106,7 +106,7 @@ func (r *resumeGET) Read(b []byte) (int, error) {
 		defer cancel()
 
 		// Defer AfterFunc's stop so that it's cancelled before we cancel the context
-		defer context.AfterFunc(ctx, func() {
+		stop := context.AfterFunc(ctx, func() {
 			// timeout, let's just close the connection, this will trigger re-opening it on the next call
 			// (this is useful to detect connection stalling, but may cause slow connections to go into an
 			// infinite loop, this said the typical buffer size we get is 32k, which would mean you'd need
@@ -116,6 +116,7 @@ func (r *resumeGET) Read(b []byte) (int, error) {
 			r.resp.Body.Close()
 			r.resp = nil
 		})
+		defer stop()
 
 		n, err := r.resp.Body.Read(b)
 
@@ -154,13 +155,14 @@ func (r *resumeGET) resumeDownload(b []byte) (int, error) {
 
 	stopCancel := context.AfterFunc(ctx, gcancel)
 
-	r.req = r.req.WithContext(ctx)
+	// Create a new request with the context instead of modifying the original
+	req := r.req.WithContext(gctx)
 
 	// Set Range header to resume from current position
-	r.req.Header.Set("Range", fmt.Sprintf("bytes=%d-", r.pos))
+	req.Header.Set("Range", fmt.Sprintf("bytes=%d-", r.pos))
 
 	// Perform the request with the Range header
-	resp, err := r.client.Do(r.req)
+	resp, err := r.client.Do(req)
 	if err != nil {
 		return 0, fmt.Errorf("resuming download: %w", err)
 	}
