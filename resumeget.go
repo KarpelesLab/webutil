@@ -14,8 +14,10 @@ type resumeGET struct {
 	req    *http.Request
 	resp   *http.Response
 	client *http.Client
-	pos    int64 // current position in bytes
-	size   int64 // total size in bytes (if known)
+	pos    int64              // current position in bytes
+	size   int64              // total size in bytes (if known)
+	ctx    context.Context    // context for reading response
+	cancel context.CancelFunc // cancel method of the context
 }
 
 // discardAndCloseBody closes a response body properly, ensuring connection reuse
@@ -50,7 +52,14 @@ func Get(url string) (io.ReadCloser, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	// we use a separate context so we're able to *not* cancel it once the request
+	// is done and we start reading
+	gctx, gcancel := context.WithCancel(context.Background())
+
+	stopCancel := context.AfterFunc(ctx, gcancel)
+	defer stopCancel()
+
+	req, err := http.NewRequestWithContext(gctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
 	}
@@ -61,12 +70,16 @@ func Get(url string) (io.ReadCloser, error) {
 		return nil, fmt.Errorf("performing request: %w", err)
 	}
 
+	// call stop() now
+	stopCancel()
+
 	// Check if the status code indicates success
 	switch resp.StatusCode {
 	case http.StatusOK, http.StatusNoContent:
 		// Success, continue
 	default:
 		// Error status, clean up and return an error
+		gcancel()
 		discardAndCloseBody(resp)
 		return nil, HTTPError(resp.StatusCode)
 	}
@@ -78,6 +91,8 @@ func Get(url string) (io.ReadCloser, error) {
 		resp:   resp,
 		size:   resp.ContentLength,
 		client: http.DefaultClient,
+		ctx:    gctx,
+		cancel: gcancel,
 	}
 
 	return getter, nil
@@ -85,22 +100,23 @@ func Get(url string) (io.ReadCloser, error) {
 
 // Read implements io.Reader, handling automatic resumption of interrupted downloads.
 func (r *resumeGET) Read(b []byte) (int, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	// Defer AfterFunc's stop so that it's cancelled before we cancel the context
-	defer context.AfterFunc(ctx, func() {
-		// timeout, let's just close the connection, this will trigger re-opening it on the next call
-		// (this is useful to detect connection stalling, but may cause slow connections to go into an
-		// infinite loop, this said the typical buffer size we get is 32k, which would mean you'd need
-		// to download at 8kbps per second for this to be an issue. Even dial up modems have more
-		// bandwidth than that).
-		r.resp.Body.Close()
-		r.resp = nil
-	})
-
 	// If we have an active response, try to read from it
 	if r.resp != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		// Defer AfterFunc's stop so that it's cancelled before we cancel the context
+		defer context.AfterFunc(ctx, func() {
+			// timeout, let's just close the connection, this will trigger re-opening it on the next call
+			// (this is useful to detect connection stalling, but may cause slow connections to go into an
+			// infinite loop, this said the typical buffer size we get is 32k, which would mean you'd need
+			// to download at 8kbps per second for this to be an issue. Even dial up modems have more
+			// bandwidth than that).
+			r.cancel()
+			r.resp.Body.Close()
+			r.resp = nil
+		})
+
 		n, err := r.resp.Body.Read(b)
 
 		// If we read data, update position and return, even if there was an error
@@ -131,6 +147,15 @@ func (r *resumeGET) Read(b []byte) (int, error) {
 // resumeDownload attempts to resume an interrupted download
 // using Range headers.
 func (r *resumeGET) resumeDownload(b []byte) (int, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	gctx, gcancel := context.WithCancel(context.Background())
+
+	stopCancel := context.AfterFunc(ctx, gcancel)
+
+	r.req = r.req.WithContext(ctx)
+
 	// Set Range header to resume from current position
 	r.req.Header.Set("Range", fmt.Sprintf("bytes=%d-", r.pos))
 
@@ -140,14 +165,19 @@ func (r *resumeGET) resumeDownload(b []byte) (int, error) {
 		return 0, fmt.Errorf("resuming download: %w", err)
 	}
 
+	stopCancel()
+
 	// Server must respond with 206 Partial Content for a successful range request
 	if resp.StatusCode != http.StatusPartialContent {
+		gcancel()
 		discardAndCloseBody(resp)
 		return 0, fmt.Errorf("expected 206 Partial Content, got %w", HTTPError(resp.StatusCode))
 	}
 
 	// Store the new response
 	r.resp = resp
+	r.ctx = gctx
+	r.cancel = gcancel
 
 	// Read data from the new response
 	n, err := r.resp.Body.Read(b)
