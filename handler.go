@@ -1,6 +1,8 @@
 package webutil
 
-import "net/http"
+import (
+	"net/http"
+)
 
 // handlerFunc is similar to http.HandlerFunc but also implements the error interface.
 // This allows it to be used as both an HTTP handler and as an error return value

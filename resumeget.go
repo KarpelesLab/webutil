@@ -85,6 +85,20 @@ func Get(url string) (io.ReadCloser, error) {
 
 // Read implements io.Reader, handling automatic resumption of interrupted downloads.
 func (r *resumeGET) Read(b []byte) (int, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Defer AfterFunc's stop so that it's cancelled before we cancel the context
+	defer context.AfterFunc(ctx, func() {
+		// timeout, let's just close the connection, this will trigger re-opening it on the next call
+		// (this is useful to detect connection stalling, but may cause slow connections to go into an
+		// infinite loop, this said the typical buffer size we get is 32k, which would mean you'd need
+		// to download at 8kbps per second for this to be an issue. Even dial up modems have more
+		// bandwidth than that).
+		r.resp.Body.Close()
+		r.resp = nil
+	})
+
 	// If we have an active response, try to read from it
 	if r.resp != nil {
 		n, err := r.resp.Body.Read(b)
