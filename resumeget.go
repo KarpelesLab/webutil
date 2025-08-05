@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"time"
 )
@@ -139,6 +140,8 @@ func (r *resumeGET) Read(b []byte) (int, error) {
 			r.resp.Body.Close()
 			r.resp = nil
 		}
+
+		stop()
 	}
 
 	// No active response or previous response had an error, attempt to resume
@@ -157,6 +160,8 @@ func (r *resumeGET) resumeDownload(b []byte) (int, error) {
 
 	// Create a new request with the context instead of modifying the original
 	req := r.req.WithContext(gctx)
+
+	log.Printf("Resuming download at %d", r.pos)
 
 	// Set Range header to resume from current position
 	req.Header.Set("Range", fmt.Sprintf("bytes=%d-", r.pos))
