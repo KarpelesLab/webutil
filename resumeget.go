@@ -1,11 +1,13 @@
 package webutil
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -36,19 +38,29 @@ func discardAndCloseBody(resp *http.Response) {
 	resp.Body.Close()
 }
 
-// Get performs an HTTP GET request that can automatically resume downloads.
+// Get retrieves content from a URL or data URI and returns it as an io.ReadCloser.
 //
-// It returns an io.ReadCloser that will:
+// For HTTP/HTTPS URLs, it returns an io.ReadCloser that will:
 // 1. Automatically resume the download if the connection is interrupted
 // 2. Handle proper error reporting based on HTTP status codes
+// 3. Use Range headers for transparent resuming when connections fail mid-download
 //
-// Limitations:
+// For data URIs (URLs starting with "data:"), it decodes the embedded data
+// and returns it directly without any network request.
+//
+// Limitations for HTTP requests:
 // - If the server doesn't support Range headers, it can't resume
 // - If Content-Length isn't provided, size tracking won't be accurate
-//
-// The returned io.ReadCloser implements transparent resuming by using
-// Range headers when an HTTP connection fails mid-download.
 func Get(url string) (io.ReadCloser, error) {
+	if strings.HasPrefix(url, "data:") {
+		// handle data uri
+		buf, _, err := ParseDataURI(url)
+		if err != nil {
+			return nil, err
+		}
+		return io.NopCloser(bytes.NewReader(buf)), nil
+	}
+
 	// Use context for better control and potential timeout in the future
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
