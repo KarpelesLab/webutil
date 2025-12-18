@@ -279,7 +279,7 @@ func encodePhpQueryAppend(result []byte, value any, key string) []byte {
 
 	case *bytes.Buffer:
 		// Convert buffers to strings
-		return encodePhpQueryAppend(result, string(val.Bytes()), key)
+		return encodePhpQueryAppend(result, val.String(), key)
 
 	default:
 		// Convert anything else to string representation
