@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -21,6 +22,31 @@ type resumeGET struct {
 	size   int64              // total size in bytes (if known)
 	ctx    context.Context    // context for reading response
 	cancel context.CancelFunc // cancel method of the context
+	mu     sync.Mutex         // protects resp during timeout handling
+}
+
+// getResp safely returns the current response, protected by mutex.
+func (r *resumeGET) getResp() *http.Response {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.resp
+}
+
+// takeResp atomically gets and clears the current response, protected by mutex.
+// Use this when you intend to close the response afterward.
+func (r *resumeGET) takeResp() *http.Response {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	resp := r.resp
+	r.resp = nil
+	return resp
+}
+
+// setResp safely sets the current response, protected by mutex.
+func (r *resumeGET) setResp(resp *http.Response) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.resp = resp
 }
 
 // discardAndCloseBody closes a response body properly, ensuring connection reuse
@@ -114,7 +140,7 @@ func Get(url string) (io.ReadCloser, error) {
 // Read implements io.Reader, handling automatic resumption of interrupted downloads.
 func (r *resumeGET) Read(b []byte) (int, error) {
 	// If we have an active response, try to read from it
-	if r.resp != nil {
+	if resp := r.getResp(); resp != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
@@ -126,12 +152,13 @@ func (r *resumeGET) Read(b []byte) (int, error) {
 			// to download at 8kbps per second for this to be an issue. Even dial up modems have more
 			// bandwidth than that).
 			r.cancel()
-			r.resp.Body.Close()
-			r.resp = nil
+			if resp := r.takeResp(); resp != nil {
+				resp.Body.Close()
+			}
 		})
 		defer stop()
 
-		n, err := r.resp.Body.Read(b)
+		n, err := resp.Body.Read(b)
 
 		// If we read data, update position and return, even if there was an error
 		// This ensures we return the data we have before handling any error
@@ -149,8 +176,9 @@ func (r *resumeGET) Read(b []byte) (int, error) {
 			}
 
 			// Otherwise, close the current response to prepare for resumption
-			r.resp.Body.Close()
-			r.resp = nil
+			if resp := r.takeResp(); resp != nil {
+				resp.Body.Close()
+			}
 		}
 
 		stop()
@@ -194,20 +222,20 @@ func (r *resumeGET) resumeDownload(b []byte) (int, error) {
 	}
 
 	// Store the new response
-	r.resp = resp
+	r.setResp(resp)
 	r.ctx = gctx
 	r.cancel = gcancel
 
 	// Read data from the new response
-	n, err := r.resp.Body.Read(b)
+	n, err := resp.Body.Read(b)
 	r.pos += int64(n)
 	return n, err
 }
 
 // Close implements io.Closer, ensuring the response body is properly closed.
 func (r *resumeGET) Close() error {
-	if r.resp == nil || r.resp.Body == nil {
-		return nil
+	if resp := r.takeResp(); resp != nil && resp.Body != nil {
+		return resp.Body.Close()
 	}
-	return r.resp.Body.Close()
+	return nil
 }
